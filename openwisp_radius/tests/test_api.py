@@ -1891,17 +1891,17 @@ class TestClientIpApi(ApiTokenMixin, BaseTestCase):
         org = self._get_org()
         self.assertEqual(cache.get(f'ip-{org.pk}'), None)
         with self.subTest('Without Cache'):
-            authorize_and_asset(4, [])
+            authorize_and_asset(6, [])
         with self.subTest('With Cache'):
-            authorize_and_asset(2, [])
+            authorize_and_asset(4, [])
         with self.subTest('Organization Settings Updated'):
             radsetting = OrganizationRadiusSettings.objects.get(organization=org)
             radsetting.freeradius_allowed_hosts = '127.0.0.1,192.0.2.0'
             radsetting.save()
-            authorize_and_asset(2, ['127.0.0.1', '192.0.2.0'])
+            authorize_and_asset(4, ['127.0.0.1', '192.0.2.0'])
         with self.subTest('Cache Deleted'):
             cache.clear()
-            authorize_and_asset(4, ['127.0.0.1', '192.0.2.0'])
+            authorize_and_asset(6, ['127.0.0.1', '192.0.2.0'])
 
     def test_ip_from_setting_valid(self):
         response = self.client.post(reverse('radius:authorize'), self.params)
@@ -2133,6 +2133,7 @@ class TestApiPhoneToken(ApiTokenMixin, BaseTestCase):
         super().setUp()
         radius_settings = self.default_org.radius_settings
         radius_settings.sms_verification = True
+        radius_settings.needs_identity_verification = True
         radius_settings.sms_sender = '+595972157632'
         radius_settings.sms_meta_data = {
             'clientId': 3,

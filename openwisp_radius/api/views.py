@@ -235,9 +235,8 @@ class AuthorizeView(GenericAPIView):
         """
         try:
             filter_kwargs = dict(is_active=True)
-            # get organization settings from id in token to check for verification
-            org_settings = Organization.objects.get(pk=request._auth).radius_settings
-            if org_settings.needs_identity_verification:
+            organization = Organization.objects.get(pk=request._auth)
+            if needs_identity_verification(organization):
                 filter_kwargs['registereduser__is_verified'] = True
             user = auth_backend.get_users(username).filter(**filter_kwargs)[0]
         except IndexError:
@@ -597,12 +596,17 @@ class ObtainAuthTokenView(DispatchOrgMixin, RadiusTokenMixin, BaseObtainAuthToke
         serializer = self.serializer_class(instance=token, context=context)
         response = {
             'radius_user_token': radius_token.key,
+            'is_active': user.is_active,
             'is_verified': user.registereduser.is_verified,
         }
         response.update(serializer.data)
         status_code = 200 if user.is_active else 401
+        organization = Organization.objects.get(slug=kwargs['slug'])
         # If identity verification is required, check if user is verified
-        if needs_identity_verification and not user.registereduser.is_verified:
+        if (
+            needs_identity_verification(organization)
+            and not user.registereduser.is_verified
+        ):
             status_code = 401
         return Response(response, status=status_code)
 
@@ -655,6 +659,7 @@ class ValidateAuthTokenView(DispatchOrgMixin, RadiusTokenMixin, CreateAPIView):
                     'radius_user_token': radius_token.key,
                     'username': user.username,
                     'email': user.email,
+                    'is_active': user.is_active,
                     'is_verified': user.registereduser.is_verified,
                     'phone_number': str(phone_number),
                 }
